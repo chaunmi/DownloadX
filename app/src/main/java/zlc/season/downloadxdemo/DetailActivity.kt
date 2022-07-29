@@ -5,10 +5,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import coil.load
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import zlc.season.bracer.mutableParams
-import zlc.season.bracer.params
-import zlc.season.downloadx.State
 import zlc.season.downloadx.download
 import zlc.season.downloadxdemo.databinding.ActivityDetailBinding
 
