@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import zlc.season.bracer.start
+import zlc.season.downloadx.core.DownloadConfig
+import zlc.season.downloadx.core.DownloadManager
 import zlc.season.downloadx.download
 import zlc.season.downloadxdemo.databinding.ActivityMainBinding
 import zlc.season.downloadxdemo.databinding.AppInfoItemBinding
@@ -37,6 +39,8 @@ class MainActivity : AppCompatActivity() {
         binding.btnRetry.setOnClickListener {
             dataSource.invalidate()
         }
+
+        DownloadManager.init(context = this.applicationContext)
 
         binding.recyclerView.linear(dataSource) {
             renderBindingItem<AppListResp.AppInfo, AppInfoItemBinding> {
@@ -70,6 +74,7 @@ class MainActivity : AppCompatActivity() {
                                 downloadTask.stop()
                             }
                             else -> {
+                                downloadTask.config.isRangeDownload = !binding.cbMultiThread.isChecked
                                 downloadTask.start()
                             }
                         }

@@ -1,5 +1,7 @@
 package zlc.season.downloadx.core
 
+import zlc.season.downloadx.utils.md5
+
 
 open class DownloadParam(
     var url: String,
@@ -11,7 +13,8 @@ open class DownloadParam(
     /**
      * Each task with unique tag.
      */
-    open fun tag() = url
+
+    open fun tag() = url.md5()
 
 
     override fun equals(other: Any?): Boolean {

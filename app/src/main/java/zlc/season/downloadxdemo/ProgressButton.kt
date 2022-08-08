@@ -12,7 +12,7 @@ class ProgressButton @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr) {
     val binding = LayoutProgressButtonBinding.inflate(LayoutInflater.from(context), this, true)
-
+    var startTime = 0L
     fun setState(state: State) {
         binding.progress.max = state.progress.totalSize.toInt()
         binding.progress.progress = state.progress.downloadSize.toInt()
@@ -22,6 +22,7 @@ class ProgressButton @JvmOverloads constructor(
                 binding.button.text = "下载"
             }
             is State.Waiting -> {
+                startTime = System.currentTimeMillis()
                 binding.button.text = "等待中"
             }
             is State.Downloading -> {
@@ -34,7 +35,8 @@ class ProgressButton @JvmOverloads constructor(
                 binding.button.text = "继续"
             }
             is State.Succeed -> {
-                binding.button.text = "安装"
+                binding.button.text = "安装(${System.currentTimeMillis() - startTime})"
+
             }
         }
     }

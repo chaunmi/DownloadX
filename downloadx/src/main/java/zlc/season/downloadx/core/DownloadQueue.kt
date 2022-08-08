@@ -12,22 +12,7 @@ interface DownloadQueue {
     suspend fun dequeue(task: DownloadTask)
 }
 
-class DefaultDownloadQueue private constructor(private val maxTask: Int) : DownloadQueue {
-    companion object {
-        private val lock = Any()
-        private var instance: DefaultDownloadQueue? = null
-
-        fun get(maxTask: Int = MAX_TASK_NUMBER): DefaultDownloadQueue {
-            if (instance == null) {
-                synchronized(lock) {
-                    if (instance == null) {
-                        instance = DefaultDownloadQueue(maxTask)
-                    }
-                }
-            }
-            return instance!!
-        }
-    }
+class DefaultDownloadQueue(private val maxTask: Int = MAX_TASK_NUMBER) : DownloadQueue {
 
     private val channel = Channel<DownloadTask>()
     private val tempMap = ConcurrentHashMap<String, DownloadTask>()

@@ -1,5 +1,6 @@
 package zlc.season.downloadx.utils
 
+import zlc.season.downloadx.core.DownloadManager
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.MappedByteBuffer
@@ -46,4 +47,15 @@ fun File.clear() {
     shadow.delete()
     tmp.delete()
     delete()
+}
+
+fun getFilePath(path: String): String {
+    var filePath = path
+    if(filePath.isEmpty()) {
+        filePath = DownloadManager.defaultPath()
+        if(filePath.isEmpty()) {
+            throw Exception(" savePath is empty and no default path, please set savePath or set Default path with DownloadManage.init() ")
+        }
+    }
+    return filePath
 }

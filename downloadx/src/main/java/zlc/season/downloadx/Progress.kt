@@ -8,7 +8,7 @@ class Progress(
     var downloadSize: Long = 0,
     var totalSize: Long = 0,
     /**
-     * 用于标识一个链接是否是分块下载, 如果该值为true, 那么totalSize为-1
+     * 用于标识一个链接是否是分块传输,也即Transfer-Encoding: chunked, 如果该值为true, 则无法获取到Content—Length， 那么totalSize为0
      */
     var isChunked: Boolean = false
 ) {

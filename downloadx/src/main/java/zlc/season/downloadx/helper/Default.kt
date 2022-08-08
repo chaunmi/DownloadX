@@ -1,17 +1,14 @@
 package zlc.season.downloadx.helper
 
-import zlc.season.claritypotion.ClarityPotion
-
 object Default {
     /**
-     * 默认的保存路径
+     * 最小分片大小
      */
-    val DEFAULT_SAVE_PATH = ClarityPotion.clarityPotion.filesDir.path
-
+    const val MIN_RANGE_SIZE = 10L * 1024 * 1024
     /**
-     * 默认的分片大小
+     * 最大分片数量
      */
-    const val DEFAULT_RANGE_SIZE = 5L * 1024 * 1024
+    const val MAX_RANGES = 5
 
     /**
      * 单个任务同时下载的分片数量

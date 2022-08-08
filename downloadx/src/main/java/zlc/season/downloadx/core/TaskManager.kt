@@ -8,7 +8,7 @@ interface TaskManager {
     fun remove(task: DownloadTask)
 }
 
-object DefaultTaskManager : TaskManager {
+class DefaultTaskManager : TaskManager {
     private val taskMap = ConcurrentHashMap<String, DownloadTask>()
 
     override fun add(task: DownloadTask): DownloadTask {

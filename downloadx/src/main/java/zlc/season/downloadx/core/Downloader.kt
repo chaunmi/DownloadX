@@ -1,12 +1,10 @@
 package zlc.season.downloadx.core
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
-import okhttp3.ResponseBody
-import retrofit2.Response
 import zlc.season.downloadx.Progress
+import zlc.season.downloadx.net.IRequestResponse
 import java.io.File
 
 class QueryProgress(val completableDeferred: CompletableDeferred<Progress>)
@@ -19,7 +17,7 @@ interface Downloader {
     suspend fun download(
         downloadParam: DownloadParam,
         downloadConfig: DownloadConfig,
-        response: Response<ResponseBody>
+        response: IRequestResponse
     )
 }
 

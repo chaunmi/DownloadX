@@ -1,10 +1,8 @@
 package zlc.season.downloadx.core
 
 import okhttp3.OkHttpClient
-import okhttp3.ResponseBody
-import retrofit2.Response
-import zlc.season.downloadx.utils.contentLength
-import zlc.season.downloadx.utils.isSupportRange
+import okhttp3.Protocol
+import zlc.season.downloadx.net.IRequestResponse
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -12,9 +10,10 @@ interface HttpClientFactory {
     fun create(): OkHttpClient
 }
 
-object DefaultHttpClientFactory : HttpClientFactory {
+class DefaultHttpClientFactory : HttpClientFactory {
     override fun create(): OkHttpClient {
         return OkHttpClient().newBuilder()
+            .protocols(arrayListOf(Protocol.HTTP_1_1))
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(120, TimeUnit.SECONDS)
@@ -23,12 +22,12 @@ object DefaultHttpClientFactory : HttpClientFactory {
 }
 
 interface DownloadDispatcher {
-    fun dispatch(downloadTask: DownloadTask, resp: Response<ResponseBody>): Downloader
+    fun dispatch(downloadTask: DownloadTask, response: IRequestResponse): Downloader
 }
 
-object DefaultDownloadDispatcher : DownloadDispatcher {
-    override fun dispatch(downloadTask: DownloadTask, resp: Response<ResponseBody>): Downloader {
-        return if (resp.isSupportRange()) {
+class DefaultDownloadDispatcher : DownloadDispatcher {
+    override fun dispatch(downloadTask: DownloadTask, response: IRequestResponse): Downloader {
+        return if (downloadTask.config.isRangeDownload && response.isSupportRange()) {
             RangeDownloader(downloadTask.coroutineScope)
         } else {
             NormalDownloader(downloadTask.coroutineScope)
@@ -40,15 +39,15 @@ interface FileValidator {
     fun validate(
         file: File,
         param: DownloadParam,
-        resp: Response<ResponseBody>
+        resp: IRequestResponse
     ): Boolean
 }
 
-object DefaultFileValidator : FileValidator {
+class DefaultFileValidator : FileValidator {
     override fun validate(
         file: File,
         param: DownloadParam,
-        resp: Response<ResponseBody>
+        resp: IRequestResponse
     ): Boolean {
         return file.length() == resp.contentLength()
     }

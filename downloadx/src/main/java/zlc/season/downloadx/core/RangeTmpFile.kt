@@ -9,6 +9,12 @@ class RangeTmpFile(private val tmpFile: File) {
     private val fileHeader = FileHeader()
     private val fileContent = FileContent()
 
+    /**
+     *
+     * @param totalSize Long
+     * @param totalRanges Long
+     * @param rangeSize Long
+     */
     fun write(totalSize: Long, totalRanges: Long, rangeSize: Long) {
         tmpFile.sink().buffer().use {
             fileHeader.write(it, totalSize, totalRanges)
@@ -89,6 +95,12 @@ private class FileHeader(
 private class FileContent {
     val ranges = mutableListOf<Range>()
 
+    /**
+     * @param sink
+     * @param totalSize 文件总大小
+     * @param totalRanges  分成几片
+     * @param rangeSize 每片大小
+     */
     fun write(
         sink: BufferedSink,
         totalSize: Long,
@@ -136,14 +148,23 @@ private class FileContent {
     }
 }
 
+/**
+ * 前闭后闭[]
+ * @property index Long  第几分片
+ * @property start Long 注意这个start为文件总大小的基础上的start
+ * @property current Long 当前已下载的大小
+ * @property end Long 当前分片的结束字符
+ * @constructor
+ */
 class Range(
     var index: Long = 0L,
     var start: Long = 0L,
     var current: Long = 0L,
-    var end: Long = 0L
+    var end: Long = 0L  //
 ) {
 
     companion object {
+        const val CURRENT_BYTES_INDEX = 16
         const val RANGE_SIZE = 32L //each Long is 8 bytes
     }
 
@@ -173,10 +194,11 @@ class Range(
 
     fun isComplete() = (current - end) == 1L
 
-    fun remainSize() = end - current + 1
+    fun remainSize() = end - current + 1 //实际上为 end - (current - 1)
 
     fun completeSize() = current - start
 
+    fun totalSize() = end - start + 1
     /**
      * Return the starting position of the range
      */

@@ -1,10 +1,11 @@
 package zlc.season.downloadx.utils
 
-import okhttp3.ResponseBody
-import retrofit2.Response
+import zlc.season.downloadx.helper.Default.MAX_RANGES
+import zlc.season.downloadx.helper.Default.MIN_RANGE_SIZE
 import java.io.Closeable
 import java.util.*
 import java.util.regex.Pattern
+
 
 /** Closes this, ignoring any checked exceptions. */
 fun Closeable.closeQuietly() {
@@ -16,48 +17,10 @@ fun Closeable.closeQuietly() {
     }
 }
 
-fun Response<ResponseBody>.closeQuietly() {
-    body()?.closeQuietly()
-    errorBody()?.closeQuietly()
-}
 
-fun Response<*>.url(): String {
-    return raw().request.url.toString()
-}
-
-fun Response<*>.contentLength(): Long {
-    return header("Content-Length").toLongOrDefault(-1)
-}
-
-fun Response<*>.isChunked(): Boolean {
-    return header("Transfer-Encoding") == "chunked"
-}
-
-fun Response<*>.isSupportRange(): Boolean {
-    if (code() == 206
-        || header("Content-Range").isNotEmpty()
-        || header("Accept-Ranges") == "bytes"
-    ) {
-        return true
-    }
-    return false
-}
-
-fun Response<*>.fileName(): String {
-    val url = url()
-
-    var fileName = contentDisposition()
-    if (fileName.isEmpty()) {
-        fileName = getFileNameFromUrl(url)
-    }
-
-    return fileName
-}
-
-fun Response<*>.calcRanges(rangeSize: Long): Long {
-    val totalSize = contentLength()
-    val remainder = totalSize % rangeSize
-    val result = totalSize / rangeSize
+fun calcRanges(cotentLength: Long, rangeSize: Long): Long {
+    val remainder = cotentLength % rangeSize
+    val result = cotentLength / rangeSize
 
     return if (remainder == 0L) {
         result
@@ -66,8 +29,52 @@ fun Response<*>.calcRanges(rangeSize: Long): Long {
     }
 }
 
-private fun Response<*>.contentDisposition(): String {
-    val contentDisposition = header("Content-Disposition").toLowerCase(Locale.getDefault())
+
+/**
+ * 最小分片大小为10M，最大分片数量为5
+ * @receiver Response<*>
+ * @param ranges Int
+ * @return Pair<Long, Int>
+ */
+fun calcRanges(contentLength: Long, ranges: Int): Pair<Long, Int> {
+    val totalSize = contentLength
+    var finalRangeSize = 0L
+    var finalRanges = ranges
+
+    if(totalSize < MIN_RANGE_SIZE) {
+        finalRanges = 1
+        finalRangeSize = MIN_RANGE_SIZE
+    } else if(totalSize <= 50L * 1024 * 1024) {
+        finalRangeSize = MIN_RANGE_SIZE
+        val tempRanges = totalSize / finalRangeSize
+        val tempRangSize = totalSize % finalRangeSize
+        if(tempRanges < ranges) {
+            finalRanges = tempRanges.toInt()
+            if(tempRangSize != 0L) {
+                finalRanges += 1
+            }
+        }
+    }
+
+    if(finalRanges > MAX_RANGES) {
+        finalRanges = MAX_RANGES
+    }
+
+    val tempRangeSize = totalSize.toMaxSegmentation(finalRanges.toLong())
+    if(tempRangeSize > finalRangeSize) {
+        finalRangeSize = tempRangeSize.toMinMultiple(8)
+    }
+
+    //溢出之后可能会减少数量
+    if(totalSize % finalRangeSize == 0L) {
+        finalRanges = (totalSize / finalRangeSize).toInt()
+    }
+
+    return Pair(finalRangeSize, finalRanges)
+}
+
+fun getFileNameFromContentDisposition(disposition: String?): String {
+    val contentDisposition = disposition?.toLowerCase(Locale.getDefault())?: return ""
 
     if (contentDisposition.isEmpty()) {
         return ""
@@ -113,9 +120,4 @@ fun getFileNameFromUrl(url: String): String {
     }
 
     return ""
-}
-
-private fun Response<*>.header(key: String): String {
-    val header = headers()[key]
-    return header ?: ""
 }

@@ -1,13 +1,19 @@
 package zlc.season.downloadx.core
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.flow.*
 import zlc.season.downloadx.Progress
 import zlc.season.downloadx.State
+import zlc.season.downloadx.State.None
+import zlc.season.downloadx.State.Waiting
 import zlc.season.downloadx.helper.Default
 import zlc.season.downloadx.utils.clear
 import zlc.season.downloadx.utils.closeQuietly
-import zlc.season.downloadx.utils.fileName
+import zlc.season.downloadx.utils.getFilePath
 import zlc.season.downloadx.utils.log
 import java.io.File
 
@@ -22,8 +28,10 @@ open class DownloadTask(
     private var downloadJob: Job? = null
     private var downloader: Downloader? = null
 
+    //TODO 将progress与state进行分离
     private val downloadProgressFlow = MutableStateFlow(0)
     private val downloadStateFlow = MutableStateFlow<State>(stateHolder.none)
+    private val stateLock = Object()
 
     fun isStarted(): Boolean {
         return stateHolder.isStarted()
@@ -63,7 +71,7 @@ open class DownloadTask(
 
             notifyWaiting()
             try {
-                config.queue.enqueue(this@DownloadTask)
+                DownloadManager.downloadQueue.enqueue(this@DownloadTask)
             } catch (e: Exception) {
                 if (e !is CancellationException) {
                     notifyFailed()
@@ -89,21 +97,21 @@ open class DownloadTask(
             }
         }
         downloadJob = coroutineScope.launch(errorHandler + Dispatchers.IO) {
-            val response = config.request(param.url, Default.RANGE_CHECK_HEADER)
+            val response = config.requestProvider.request(param.url, Default.RANGE_CHECK_HEADER)
+
             try {
-                if (!response.isSuccessful || response.body() == null) {
+                if (!response.isSuccess()) {
                     throw RuntimeException("request failed")
                 }
 
+                param.savePath = getFilePath(param.savePath)
+
                 if (param.saveName.isEmpty()) {
-                    param.saveName = response.fileName()
-                }
-                if (param.savePath.isEmpty()) {
-                    param.savePath = Default.DEFAULT_SAVE_PATH
+                    param.saveName = response.detectFilename()
                 }
 
                 if (downloader == null) {
-                    downloader = config.dispatcher.dispatch(this@DownloadTask, response)
+                    downloader = DownloadManager.dispatcher.dispatch(this@DownloadTask, response)
                 }
 
                 notifyStarted()
@@ -130,7 +138,7 @@ open class DownloadTask(
     fun stop() {
         coroutineScope.launch {
             if (isStarted()) {
-                config.queue.dequeue(this@DownloadTask)
+                DownloadManager.downloadQueue.dequeue(this@DownloadTask)
                 downloadJob?.cancel()
                 notifyStopped()
             }
@@ -142,7 +150,7 @@ open class DownloadTask(
      */
     fun remove(deleteFile: Boolean = true) {
         stop()
-        config.taskManager.remove(this)
+        DownloadManager.taskManager.remove(this)
         if (deleteFile) {
             file()?.clear()
         }
@@ -159,7 +167,7 @@ open class DownloadTask(
             channelFlow {
                 while (currentCoroutineContext().isActive) {
                     val progress = getProgress()
-
+                    //TODO 通过一个channel来等待通知
                     if (hasSend && stateHolder.isEnd()) {
                         if (!ensureLast) {
                             break
@@ -181,8 +189,31 @@ open class DownloadTask(
     /**
      * @param interval 更新进度间隔时间，单位ms
      */
+    //TODO 将state与progress隔离
     fun state(interval: Long = 200): Flow<State> {
         return downloadStateFlow.combine(progress(interval, ensureLast = false)) { l, r -> l.apply { progress = r } }
+    }
+
+    fun progress(interval: Long = 200): Flow<Progress> {
+        return channelFlow {
+            while (currentCoroutineContext().isActive) {
+
+                val state = stateHolder.currentState
+                when(state) {
+                    is None, is Waiting -> {
+                        stateLock.wait()
+                    }
+                    is State.Downloading -> {
+                        val progress = getProgress()
+                        send(progress)
+                        "url ${param.url} progress ${progress.percentStr()}".log()
+                        if (progress.isComplete()) break
+
+                        delay(interval)
+                    }
+                }
+            }
+        }
     }
 
     suspend fun getProgress(): Progress {
@@ -227,8 +258,8 @@ open class DownloadTask(
     }
 
     class StateHolder {
-        val none by lazy { State.None() }
-        val waiting by lazy { State.Waiting() }
+        val none by lazy { None() }
+        val waiting by lazy { Waiting() }
         val downloading by lazy { State.Downloading() }
         val stopped by lazy { State.Stopped() }
         val failed by lazy { State.Failed() }
@@ -237,7 +268,7 @@ open class DownloadTask(
         var currentState: State = none
 
         fun isStarted(): Boolean {
-            return currentState is State.Waiting || currentState is State.Downloading
+            return currentState is Waiting || currentState is State.Downloading
         }
 
         fun isFailed(): Boolean {
@@ -249,11 +280,11 @@ open class DownloadTask(
         }
 
         fun canStart(): Boolean {
-            return currentState is State.None || currentState is State.Failed || currentState is State.Stopped
+            return currentState is None || currentState is State.Failed || currentState is State.Stopped
         }
 
         fun isEnd(): Boolean {
-            return currentState is State.None || currentState is State.Waiting || currentState is State.Stopped || currentState is State.Failed || currentState is State.Succeed
+            return currentState is None || currentState is Waiting || currentState is State.Stopped || currentState is State.Failed || currentState is State.Succeed
         }
 
         fun updateState(new: State, progress: Progress): State {

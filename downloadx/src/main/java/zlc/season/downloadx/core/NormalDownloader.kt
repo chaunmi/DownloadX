@@ -1,17 +1,19 @@
 package zlc.season.downloadx.core
 
+import android.util.Log
 import kotlinx.coroutines.*
-import okhttp3.ResponseBody
 import okio.buffer
 import okio.sink
-import retrofit2.Response
-import zlc.season.downloadx.utils.*
+import zlc.season.downloadx.net.IRequestResponse
+import zlc.season.downloadx.utils.closeQuietly
+import zlc.season.downloadx.utils.recreate
+import zlc.season.downloadx.utils.shadow
 import java.io.File
 
 @OptIn(ObsoleteCoroutinesApi::class)
 class NormalDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutineScope) {
     companion object {
-        private const val BUFFER_SIZE = 8192L
+        private const val BUFFER_SIZE = 8192
     }
 
     private var alreadyDownloaded = false
@@ -22,7 +24,7 @@ class NormalDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutin
     override suspend fun download(
         downloadParam: DownloadParam,
         downloadConfig: DownloadConfig,
-        response: Response<ResponseBody>
+        response: IRequestResponse
     ) {
         try {
             file = downloadParam.file()
@@ -41,7 +43,7 @@ class NormalDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutin
                 this.totalSize = contentLength
                 this.downloadSize = 0
                 this.isChunked = isChunked
-                startDownload(response.body()!!)
+                startDownload(response)
             }
         } finally {
             response.closeQuietly()
@@ -67,20 +69,23 @@ class NormalDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutin
         }
     }
 
-    private suspend fun startDownload(body: ResponseBody) = coroutineScope {
+    private suspend fun startDownload(response: IRequestResponse) = coroutineScope {
+        val startTime = System.currentTimeMillis()
         val deferred = async(Dispatchers.IO) {
-            val source = body.source()
-            val sink = shadowFile.sink().buffer()
-            val buffer = sink.buffer
-
-            var readLen = source.read(buffer, BUFFER_SIZE)
-            while (isActive && readLen != -1L) {
-                downloadSize += readLen
-                readLen = source.read(buffer, BUFFER_SIZE)
+            response.byteStream()?.let { source ->
+                val sink = shadowFile.sink().buffer()
+                val buffer = ByteArray(BUFFER_SIZE)
+                var readLen = source.read(buffer)
+                while (isActive && readLen != -1) {
+                    sink.write(buffer, 0, readLen)
+                    downloadSize += readLen
+                    readLen = source.read(buffer)
+                }
+                sink.closeQuietly()
             }
         }
         deferred.await()
-
+        Log.i("myTest", " normal downloader cost: ${System.currentTimeMillis() - startTime} , url: ${file.name}")
         if (isActive) {
             shadowFile.renameTo(file)
         }
