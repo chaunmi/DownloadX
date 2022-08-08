@@ -28,9 +28,9 @@ interface DownloadDispatcher {
 class DefaultDownloadDispatcher : DownloadDispatcher {
     override fun dispatch(downloadTask: DownloadTask, response: IRequestResponse): Downloader {
         return if (downloadTask.config.isRangeDownload && response.isSupportRange()) {
-            RangeDownloader(downloadTask.coroutineScope)
+            RangeDownloader(downloadTask.coroutineScope, downloadTask.config)
         } else {
-            NormalDownloader(downloadTask.coroutineScope)
+            NormalDownloader(downloadTask.coroutineScope, downloadTask.config)
         }
     }
 }

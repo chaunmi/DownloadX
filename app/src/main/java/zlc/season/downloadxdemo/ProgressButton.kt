@@ -14,9 +14,6 @@ class ProgressButton @JvmOverloads constructor(
     val binding = LayoutProgressButtonBinding.inflate(LayoutInflater.from(context), this, true)
     var startTime = 0L
     fun setState(state: State) {
-        binding.progress.max = state.progress.totalSize.toInt()
-        binding.progress.progress = state.progress.downloadSize.toInt()
-
         when (state) {
             is State.None -> {
                 binding.button.text = "下载"
@@ -25,9 +22,9 @@ class ProgressButton @JvmOverloads constructor(
                 startTime = System.currentTimeMillis()
                 binding.button.text = "等待中"
             }
-            is State.Downloading -> {
-                binding.button.text = state.progress.percentStr()
-            }
+//            is State.Downloading -> {
+//                binding.button.text = state.progress.percentStr()
+//            }
             is State.Failed -> {
                 binding.button.text = "重试"
             }
@@ -39,5 +36,11 @@ class ProgressButton @JvmOverloads constructor(
 
             }
         }
+    }
+
+    fun updateProgress(progress: Progress) {
+        binding.progress.max = progress.totalSize.toInt()
+        binding.progress.progress = progress.downloadSize.toInt()
+        binding.button.text = progress.percentStr()
     }
 }

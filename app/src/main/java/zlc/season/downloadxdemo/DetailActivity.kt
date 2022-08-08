@@ -25,7 +25,7 @@ class DetailActivity : AppCompatActivity() {
 
         val downloadTask = GlobalScope.download(appInfo.apkUrl)
 
-        downloadTask.state()
+        downloadTask.downloadStateFlow()
             .onEach { binding.button.setState(it) }
             .launchIn(lifecycleScope)
 

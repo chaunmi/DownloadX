@@ -11,7 +11,7 @@ import zlc.season.downloadx.utils.*
 import java.io.File
 
 @OptIn(ObsoleteCoroutinesApi::class, ExperimentalCoroutinesApi::class)
-class RangeDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutineScope) {
+class RangeDownloader(coroutineScope: CoroutineScope, downloadConfig: DownloadConfig) : BaseDownloader(coroutineScope, downloadConfig) {
     private lateinit var file: File
     private lateinit var shadowFile: File  //下载的临时文件
     private lateinit var tmpFile: File  //存储文件相关信息，包括总大小，分片信息等
@@ -32,10 +32,12 @@ class RangeDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutine
             if (alreadyDownloaded) {
                 downloadSize = response.contentLength()
                 totalSize = response.contentLength()
+                notifyUpdateProgress()
             } else {
                 val last = rangeTmpFile.lastProgress()
                 downloadSize = last.downloadSize
                 totalSize = last.totalSize
+                notifyUpdateProgress()
                 startDownload(downloadParam, downloadConfig)
             }
         } finally {
@@ -101,7 +103,10 @@ class RangeDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutine
 
     private suspend fun startDownload(param: DownloadParam, config: DownloadConfig) {
         val progressChannel = coroutineScope.actor<Int> {
-            channel.consumeEach { downloadSize += it }
+            channel.consumeEach {
+                downloadSize += it
+                notifyUpdateProgress()
+            }
         }
 
         rangeTmpFile.undoneRanges().parallel(max = config.rangeCurrency) {

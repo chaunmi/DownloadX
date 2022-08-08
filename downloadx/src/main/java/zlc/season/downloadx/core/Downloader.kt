@@ -22,12 +22,13 @@ interface Downloader {
 }
 
 @OptIn(ObsoleteCoroutinesApi::class)
-abstract class BaseDownloader(protected val coroutineScope: CoroutineScope) : Downloader {
+abstract class BaseDownloader(protected val coroutineScope: CoroutineScope, protected val downloadConfig: DownloadConfig) : Downloader {
     protected var totalSize: Long = 0L
     protected var downloadSize: Long = 0L
     protected var isChunked: Boolean = false
 
-    private val progress = Progress()
+    var lastProgressTimestamp = 0L
+    protected val progress = Progress()
 
     override var actor = GlobalScope.actor<QueryProgress>(Dispatchers.IO) {
         for (each in channel) {
@@ -44,6 +45,21 @@ abstract class BaseDownloader(protected val coroutineScope: CoroutineScope) : Do
         val queryProgress = QueryProgress(ack)
         actor.send(queryProgress)
         return ack.await()
+    }
+
+
+    protected suspend fun notifyUpdateProgress() = withContext(Dispatchers.Main){
+        progress.downloadSize = downloadSize
+        progress.totalSize = totalSize
+        progress.isChunked = isChunked
+
+        downloadConfig.downloadListener?.let {
+            val now = System.currentTimeMillis()
+            if(now - lastProgressTimestamp > downloadConfig.progressInterval || downloadSize == totalSize) {
+                it.onProgress(progress)
+                lastProgressTimestamp = now
+            }
+        }
     }
 
     fun DownloadParam.dir(): File {

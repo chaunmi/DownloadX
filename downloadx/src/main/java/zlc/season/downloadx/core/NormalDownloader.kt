@@ -11,7 +11,7 @@ import zlc.season.downloadx.utils.shadow
 import java.io.File
 
 @OptIn(ObsoleteCoroutinesApi::class)
-class NormalDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutineScope) {
+class NormalDownloader(coroutineScope: CoroutineScope, downloadConfig: DownloadConfig) : BaseDownloader(coroutineScope, downloadConfig) {
     companion object {
         private const val BUFFER_SIZE = 8192
     }
@@ -39,10 +39,12 @@ class NormalDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutin
                 this.downloadSize = contentLength
                 this.totalSize = contentLength
                 this.isChunked = isChunked
+                notifyUpdateProgress()
             } else {
                 this.totalSize = contentLength
                 this.downloadSize = 0
                 this.isChunked = isChunked
+                notifyUpdateProgress()
                 startDownload(response)
             }
         } finally {
@@ -79,6 +81,7 @@ class NormalDownloader(coroutineScope: CoroutineScope) : BaseDownloader(coroutin
                 while (isActive && readLen != -1) {
                     sink.write(buffer, 0, readLen)
                     downloadSize += readLen
+                    notifyUpdateProgress()
                     readLen = source.read(buffer)
                 }
                 sink.closeQuietly()

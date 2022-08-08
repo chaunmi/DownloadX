@@ -1,6 +1,7 @@
 package zlc.season.downloadxdemo
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -10,8 +11,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import zlc.season.bracer.start
+import zlc.season.downloadx.Progress
+import zlc.season.downloadx.State
 import zlc.season.downloadx.core.DownloadConfig
 import zlc.season.downloadx.core.DownloadManager
+import zlc.season.downloadx.core.IDownloadListener
 import zlc.season.downloadx.download
 import zlc.season.downloadxdemo.databinding.ActivityMainBinding
 import zlc.season.downloadxdemo.databinding.AppInfoItemBinding
@@ -45,14 +49,20 @@ class MainActivity : AppCompatActivity() {
         binding.recyclerView.linear(dataSource) {
             renderBindingItem<AppListResp.AppInfo, AppInfoItemBinding> {
                 onAttach {
-                    val downloadTask = GlobalScope.download(data.apkUrl)
+                    val downloadTask = GlobalScope.download(data.apkUrl,
+                        downloadConfig = DownloadConfig(downloadListener = object: IDownloadListener {
+                            override fun onProgress(progress: Progress) {
+                                itemBinding.button.updateProgress(progress)
+                                progress.apply {
+                                    if(totalSize > 0 && totalSize == downloadSize)
+                                        Log.e("myTest", "========================== onProgress:  complete===================== ")
+                                }
+                            }
 
-                    data.progressJob?.cancel()
-                    data.progressJob = downloadTask.state()
-                        .onEach {
-                            itemBinding.button.setState(it)
-                        }
-                        .launchIn(lifecycleScope)
+                            override fun onStateChange(state: State) {
+                                itemBinding.button.setState(state)
+                            }
+                        }))
                 }
                 onBind {
                     itemBinding.title.text = data.appName
@@ -79,10 +89,6 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                     }
-                }
-
-                onDetach {
-                    data.progressJob?.cancel()
                 }
             }
         }

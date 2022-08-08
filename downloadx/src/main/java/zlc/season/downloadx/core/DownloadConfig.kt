@@ -22,5 +22,14 @@ class DownloadConfig(
     /**
      * http client
      */
-    var requestProvider: IRequestProvider = OkHttpRequestProvider.create(DownloadManager.okhttpClient)
+    var requestProvider: IRequestProvider = OkHttpRequestProvider.create(DownloadManager.okhttpClient),
+
+    /**
+     * progress回调间隔
+     */
+    var progressInterval: Long = 200L,
+    /**
+     * 下载回调
+     */
+    var downloadListener: IDownloadListener? = null
 )
